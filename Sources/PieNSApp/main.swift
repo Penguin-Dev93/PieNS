@@ -293,8 +293,7 @@ struct HelperResult: Sendable {
     }
 }
 
-@MainActor
-final class HelperClient {
+final class HelperClient: @unchecked Sendable {
     private var connection: NSXPCConnection?
     private var requestID = 0
 
@@ -330,16 +329,19 @@ final class HelperClient {
         self.connection = connection
         requestID += 1
         let activeRequestID = requestID
+        let gate = CompletionGate()
 
         let finish: @Sendable (HelperResult) -> Void = { result in
-            Task { @MainActor in
-                guard activeRequestID == self.requestID else {
-                    return
-                }
+            guard gate.tryComplete() else {
+                return
+            }
 
-                self.requestID += 1
-                self.connection?.invalidate()
-                self.connection = nil
+            DispatchQueue.main.async {
+                if activeRequestID == self.requestID {
+                    self.requestID += 1
+                    self.connection?.invalidate()
+                    self.connection = nil
+                }
                 completion(result)
             }
         }
@@ -377,9 +379,26 @@ final class HelperClient {
     }
 }
 
+final class CompletionGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var completed = false
+
+    func tryComplete() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if completed {
+            return false
+        }
+
+        completed = true
+        return true
+    }
+}
+
 enum PieNSLog {
     static func write(_ message: String) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let timestamp = String(format: "%.3f", Date().timeIntervalSince1970)
         let line = "[\(timestamp)] \(message)\n"
         let logsDirectory = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library", isDirectory: true)
