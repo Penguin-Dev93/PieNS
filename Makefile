@@ -28,6 +28,8 @@ app: icon
 	cp "Resources/Info.plist" "$(APP_BUNDLE)/Contents/Info.plist"
 	cp "Resources/PkgInfo" "$(APP_BUNDLE)/Contents/PkgInfo"
 	cp "Resources/PieNS.icns" "$(APP_BUNDLE)/Contents/Resources/PieNS.icns"
+	cp "Resources/TrayIconOff.png" "$(APP_BUNDLE)/Contents/Resources/TrayIconOff.png"
+	cp "Resources/TrayIconOn.png" "$(APP_BUNDLE)/Contents/Resources/TrayIconOn.png"
 	codesign --force --deep --sign - "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"
 

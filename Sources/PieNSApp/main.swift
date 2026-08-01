@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.target = self
         button.action = #selector(statusItemClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        statusItem.length = 26
+        statusItem.length = 28
         PieNSLog.write("status item configured")
     }
 
@@ -474,105 +474,26 @@ enum PieNSLog {
 
 enum PieIcon {
     static func make(isManual: Bool) -> NSImage {
-        let size = NSSize(width: 24, height: 20)
-        let image = NSImage(size: size)
+        let resourceName = isManual ? "TrayIconOn" : "TrayIconOff"
+        let size = NSSize(width: 25, height: 22)
 
+        if let url = Bundle.main.url(forResource: resourceName, withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            image.size = size
+            image.isTemplate = false
+            return image
+        }
+
+        let image = NSImage(size: size)
         image.lockFocus()
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
-
-        NSColor.black.setStroke()
-
-        func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint {
-            NSPoint(x: x * size.width, y: y * size.height)
-        }
-
-        func stroke(_ path: NSBezierPath, width: CGFloat) {
-            path.lineWidth = width
-            path.lineCapStyle = .round
-            path.lineJoinStyle = .round
-            path.stroke()
-        }
-
-        let outer = NSBezierPath()
-        outer.move(to: point(0.12, 0.48))
-        outer.curve(to: point(0.20, 0.64), controlPoint1: point(0.10, 0.56), controlPoint2: point(0.13, 0.62))
-        outer.curve(to: point(0.31, 0.74), controlPoint1: point(0.22, 0.72), controlPoint2: point(0.27, 0.70))
-        outer.curve(to: point(0.46, 0.78), controlPoint1: point(0.34, 0.84), controlPoint2: point(0.41, 0.78))
-        outer.curve(to: point(0.62, 0.76), controlPoint1: point(0.51, 0.86), controlPoint2: point(0.57, 0.79))
-        outer.curve(to: point(0.78, 0.67), controlPoint1: point(0.68, 0.79), controlPoint2: point(0.75, 0.76))
-        outer.curve(to: point(0.88, 0.52), controlPoint1: point(0.86, 0.67), controlPoint2: point(0.90, 0.61))
-        if isManual {
-            outer.line(to: point(0.69, 0.49))
-            outer.move(to: point(0.60, 0.33))
-            outer.curve(to: point(0.20, 0.31), controlPoint1: point(0.48, 0.20), controlPoint2: point(0.27, 0.24))
-        } else {
-            outer.curve(to: point(0.20, 0.31), controlPoint1: point(0.82, 0.26), controlPoint2: point(0.38, 0.17))
-        }
-        outer.curve(to: point(0.12, 0.48), controlPoint1: point(0.14, 0.35), controlPoint2: point(0.13, 0.42))
-        stroke(outer, width: 1.35)
-
-        let inner = NSBezierPath()
-        inner.move(to: point(0.23, 0.48))
-        if isManual {
-            inner.curve(to: point(0.58, 0.50), controlPoint1: point(0.30, 0.64), controlPoint2: point(0.46, 0.65))
-            inner.move(to: point(0.57, 0.36))
-            inner.curve(to: point(0.23, 0.48), controlPoint1: point(0.45, 0.27), controlPoint2: point(0.29, 0.31))
-        } else {
-            inner.curve(to: point(0.78, 0.50), controlPoint1: point(0.32, 0.68), controlPoint2: point(0.67, 0.67))
-            inner.curve(to: point(0.23, 0.48), controlPoint1: point(0.69, 0.27), controlPoint2: point(0.33, 0.27))
-        }
-        stroke(inner, width: 1.35)
-
-        let body = NSBezierPath()
-        body.move(to: point(0.12, 0.48))
-        body.line(to: point(0.13, 0.35))
-        body.curve(to: point(0.27, 0.20), controlPoint1: point(0.15, 0.28), controlPoint2: point(0.20, 0.23))
-        body.curve(to: point(0.60, 0.20), controlPoint1: point(0.37, 0.16), controlPoint2: point(0.51, 0.16))
-        if isManual {
-            body.line(to: point(0.61, 0.33))
-        } else {
-            body.curve(to: point(0.88, 0.52), controlPoint1: point(0.78, 0.22), controlPoint2: point(0.89, 0.34))
-        }
-        stroke(body, width: 1.35)
-
-        if isManual {
-            let cut = NSBezierPath()
-            cut.move(to: point(0.58, 0.50))
-            cut.line(to: point(0.88, 0.52))
-            cut.line(to: point(0.78, 0.36))
-            cut.line(to: point(0.61, 0.33))
-            cut.move(to: point(0.58, 0.50))
-            cut.line(to: point(0.61, 0.33))
-            stroke(cut, width: 1.35)
-
-            let layers = NSBezierPath()
-            layers.move(to: point(0.66, 0.47))
-            layers.line(to: point(0.82, 0.48))
-            layers.move(to: point(0.68, 0.42))
-            layers.line(to: point(0.79, 0.42))
-            stroke(layers, width: 0.82)
-        }
-
-        let crimp = NSBezierPath()
-        crimp.move(to: point(0.17, 0.55))
-        crimp.line(to: point(0.25, 0.51))
-        crimp.move(to: point(0.25, 0.68))
-        crimp.line(to: point(0.31, 0.60))
-        crimp.move(to: point(0.38, 0.77))
-        crimp.line(to: point(0.40, 0.67))
-        crimp.move(to: point(0.54, 0.78))
-        crimp.line(to: point(0.54, 0.68))
-        crimp.move(to: point(0.70, 0.71))
-        crimp.line(to: point(0.66, 0.62))
-        crimp.move(to: point(0.23, 0.33))
-        crimp.line(to: point(0.30, 0.40))
-        crimp.move(to: point(0.40, 0.24))
-        crimp.line(to: point(0.42, 0.33))
-        stroke(crimp, width: 0.72)
-
+        NSColor.white.setStroke()
+        let fallback = NSBezierPath(ovalIn: NSRect(x: 4, y: 6, width: 17, height: 8))
+        fallback.lineWidth = 1.2
+        fallback.stroke()
         image.unlockFocus()
-        image.isTemplate = true
+        image.isTemplate = false
         return image
     }
 }
