@@ -5,7 +5,7 @@ import ServiceManagement
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let defaults = UserDefaults.standard
     private lazy var helperClient = HelperClient()
     private var isManual = false
@@ -28,13 +28,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.target = self
         button.action = #selector(statusItemClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        statusItem.length = 26
         PieNSLog.write("status item configured")
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
         if NSApp.currentEvent?.type == .rightMouseUp {
+            PieNSLog.write("right click")
             showMenu()
         } else {
+            PieNSLog.write("left click")
             toggleDNS()
         }
     }
@@ -42,11 +45,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func showMenu() {
         let menu = NSMenu()
 
-        let state = NSMenuItem(title: "\(activeService): \(isManual ? "Manual DNS" : "Automatic DNS")", action: nil, keyEquivalent: "")
+        let state = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         state.isEnabled = false
         menu.addItem(state)
 
         menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: isManual ? "Turn Automatic DNS On" : "Turn Manual DNS On", action: #selector(toggleDNSAction), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Configure DNS Servers...", action: #selector(configureDNSServers), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Enable Helper", action: #selector(enableHelper), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Refresh Status", action: #selector(refreshStateAction), keyEquivalent: "r"))
@@ -59,21 +63,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = nil
     }
 
+    @objc private func toggleDNSAction() {
+        toggleDNS()
+    }
+
     private func toggleDNS() {
+        PieNSLog.write("toggle requested while \(isManual ? "manual" : "automatic")")
         ensureHelperEnabled { [weak self] enabled in
             guard let self, enabled else {
+                PieNSLog.write("toggle stopped because helper is not enabled")
                 return
             }
 
             if self.isManual {
+                PieNSLog.write("setting automatic DNS")
                 self.helperClient.setAutomatic { result in
                     self.handleMutation(result)
                 }
             } else {
                 guard let servers = self.configuredServers(promptIfMissing: true) else {
+                    PieNSLog.write("toggle stopped because no DNS servers are configured")
                     return
                 }
 
+                PieNSLog.write("setting manual DNS: \(servers.joined(separator: ","))")
                 self.helperClient.setManual(servers) { result in
                     self.handleMutation(result)
                 }
@@ -84,8 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleMutation(_ result: HelperResult) {
         DispatchQueue.main.async {
             if result.ok {
+                PieNSLog.write("toggle succeeded: \(result.mode ?? "unknown") on \(result.service ?? "unknown")")
                 self.apply(result)
             } else {
+                PieNSLog.write("toggle failed: \(result.message)")
                 self.showAlert(title: "PieNS could not change DNS", message: result.message)
             }
         }
@@ -101,6 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     return
                 }
 
+                PieNSLog.write("state refresh: \(result.mode ?? "unknown") on \(result.service ?? "unknown")")
                 self.apply(result)
             }
         }
@@ -110,7 +126,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         activeService = result.service ?? "Unknown"
         isManual = result.mode == HelperResponseMode.manual
         statusItem.button?.image = PieIcon.make(isManual: isManual)
-        statusItem.button?.toolTip = "PieNS: \(activeService) is \(isManual ? "manual" : "automatic")"
+        statusItem.button?.toolTip = statusTitle
+    }
+
+    private var statusTitle: String {
+        isManual ? "PieNS ON: Manual DNS (\(activeService))" : "PieNS OFF: Automatic DNS (\(activeService))"
     }
 
     @objc private func configureDNSServers() {
@@ -133,6 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let servers = try DNSValidation.parseServers(input.stringValue)
             defaults.set(servers, forKey: PieNSConstants.dnsServersDefaultsKey)
+            PieNSLog.write("configured DNS servers: \(servers.joined(separator: ","))")
         } catch {
             showAlert(title: "Invalid DNS Servers", message: error.localizedDescription)
         }
@@ -317,14 +338,20 @@ enum PieNSLog {
 
 enum PieIcon {
     static func make(isManual: Bool) -> NSImage {
-        let size = NSSize(width: 18, height: 18)
+        let size = NSSize(width: 24, height: 18)
         let image = NSImage(size: size)
 
         image.lockFocus()
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
-        let strokeColor = isManual ? NSColor.systemGreen : NSColor.labelColor
+        if isManual {
+            let badge = NSBezierPath(roundedRect: NSRect(x: 2, y: 1.5, width: 20, height: 15), xRadius: 7.5, yRadius: 7.5)
+            NSColor.systemGreen.setFill()
+            badge.fill()
+        }
+
+        let strokeColor = isManual ? NSColor.black : NSColor.labelColor.withAlphaComponent(0.58)
         strokeColor.setStroke()
 
         func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint {
@@ -332,44 +359,44 @@ enum PieIcon {
         }
 
         let center = point(0.50, 0.50)
-        let outerRadius: CGFloat = 6.5
-        let innerRadius: CGFloat = 4.35
+        let outerRadius: CGFloat = 6.0
+        let innerRadius: CGFloat = 4.0
         let startAngle: CGFloat = 18
         let endAngle: CGFloat = 77
 
         let crust = NSBezierPath()
-        crust.lineWidth = 2.15
+        crust.lineWidth = isManual ? 1.85 : 1.75
         crust.lineCapStyle = .round
         crust.lineJoinStyle = .round
         crust.appendArc(withCenter: center, radius: outerRadius, startAngle: endAngle, endAngle: startAngle + 360)
         crust.stroke()
 
         let cut = NSBezierPath()
-        cut.lineWidth = 1.35
+        cut.lineWidth = isManual ? 1.2 : 1.1
         cut.lineCapStyle = .round
         cut.move(to: center)
-        cut.line(to: point(0.84, 0.61))
+        cut.line(to: point(0.73, 0.60))
         cut.move(to: center)
-        cut.line(to: point(0.57, 0.86))
+        cut.line(to: point(0.55, 0.82))
         cut.stroke()
 
         let filling = NSBezierPath()
-        filling.lineWidth = 1.05
+        filling.lineWidth = isManual ? 0.9 : 0.8
         filling.lineCapStyle = .round
         filling.appendArc(withCenter: center, radius: innerRadius, startAngle: endAngle + 8, endAngle: startAngle + 352)
         filling.stroke()
 
         let lattice = NSBezierPath()
-        lattice.lineWidth = 0.95
+        lattice.lineWidth = isManual ? 0.85 : 0.7
         lattice.lineCapStyle = .round
-        lattice.move(to: point(0.30, 0.42))
-        lattice.line(to: point(0.48, 0.62))
-        lattice.move(to: point(0.35, 0.63))
-        lattice.line(to: point(0.58, 0.38))
+        lattice.move(to: point(0.38, 0.43))
+        lattice.line(to: point(0.49, 0.59))
+        lattice.move(to: point(0.41, 0.61))
+        lattice.line(to: point(0.55, 0.40))
         lattice.stroke()
 
         image.unlockFocus()
-        image.isTemplate = !isManual
+        image.isTemplate = false
         return image
     }
 }
