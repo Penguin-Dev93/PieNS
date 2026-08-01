@@ -531,23 +531,24 @@ enum PieIcon {
         rim.curve(to: point(0.77, 0.50), controlPoint1: point(0.72, 0.55), controlPoint2: point(0.75, 0.53))
         stroke(rim, width: 1.0)
 
-        let lowerCrust = NSBezierPath()
-        lowerCrust.move(to: point(0.33, 0.70))
-        lowerCrust.curve(to: point(0.49, 0.73), controlPoint1: point(0.38, 0.79), controlPoint2: point(0.44, 0.79))
-        lowerCrust.curve(to: point(0.66, 0.70), controlPoint1: point(0.55, 0.79), controlPoint2: point(0.61, 0.79))
-        stroke(lowerCrust, width: 0.84)
-
-        let steamMarks = [
-            (point(0.35, 0.86), point(0.39, 0.96), point(0.43, 0.88)),
-            (point(0.52, 0.88), point(0.56, 0.98), point(0.60, 0.90)),
-            (point(0.68, 0.86), point(0.72, 0.96), point(0.76, 0.88))
-        ]
-        for mark in steamMarks {
-            let steam = NSBezierPath()
-            steam.move(to: mark.0)
-            steam.curve(to: mark.2, controlPoint1: mark.1, controlPoint2: mark.1)
-            stroke(steam, width: 0.78)
+        let lattice = NSBezierPath()
+        lattice.move(to: point(0.35, 0.38))
+        lattice.line(to: point(0.45, 0.50))
+        lattice.move(to: point(0.42, 0.55))
+        lattice.line(to: point(0.53, 0.42))
+        if !isManual {
+            lattice.move(to: point(0.58, 0.39))
+            lattice.line(to: point(0.68, 0.51))
         }
+        stroke(lattice, width: 0.82)
+
+        let crimp = NSBezierPath()
+        crimp.move(to: point(0.29, 0.70))
+        crimp.curve(to: point(0.39, 0.70), controlPoint1: point(0.32, 0.78), controlPoint2: point(0.36, 0.78))
+        crimp.curve(to: point(0.49, 0.70), controlPoint1: point(0.42, 0.78), controlPoint2: point(0.46, 0.78))
+        crimp.curve(to: point(0.59, 0.70), controlPoint1: point(0.52, 0.78), controlPoint2: point(0.56, 0.78))
+        crimp.curve(to: point(0.69, 0.70), controlPoint1: point(0.62, 0.78), controlPoint2: point(0.66, 0.78))
+        stroke(crimp, width: 0.72)
 
         image.unlockFocus()
         image.isTemplate = true

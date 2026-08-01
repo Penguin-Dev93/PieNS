@@ -137,27 +137,28 @@ private func drawTrayPie(in context: CGContext, canvas: CGRect, state: PieState,
     context.addPath(rim)
     context.strokePath()
 
-    context.setLineWidth(lineWidth * 0.58)
-    let lowerCrust = CGMutablePath()
-    lowerCrust.move(to: p(0.33, 0.70))
-    lowerCrust.addQuadCurve(to: p(0.49, 0.73), control: p(0.41, 0.79))
-    lowerCrust.addQuadCurve(to: p(0.66, 0.70), control: p(0.58, 0.79))
-    context.addPath(lowerCrust)
+    context.setLineWidth(lineWidth * 0.56)
+    let lattice = CGMutablePath()
+    lattice.move(to: p(0.35, 0.38))
+    lattice.addLine(to: p(0.45, 0.50))
+    lattice.move(to: p(0.42, 0.55))
+    lattice.addLine(to: p(0.53, 0.42))
+    if state == .off {
+        lattice.move(to: p(0.58, 0.39))
+        lattice.addLine(to: p(0.68, 0.51))
+    }
+    context.addPath(lattice)
     context.strokePath()
 
-    context.setLineWidth(lineWidth * 0.62)
-    let steam = [
-        (p(0.35, 0.86), p(0.39, 0.96), p(0.43, 0.88)),
-        (p(0.51, 0.88), p(0.55, 0.98), p(0.59, 0.90)),
-        (p(0.67, 0.86), p(0.71, 0.96), p(0.75, 0.88))
-    ]
-    for mark in steam {
-        let path = CGMutablePath()
-        path.move(to: mark.0)
-        path.addQuadCurve(to: mark.2, control: mark.1)
-        context.addPath(path)
-        context.strokePath()
-    }
+    context.setLineWidth(lineWidth * 0.50)
+    let crimp = CGMutablePath()
+    crimp.move(to: p(0.29, 0.70))
+    crimp.addQuadCurve(to: p(0.39, 0.70), control: p(0.34, 0.78))
+    crimp.addQuadCurve(to: p(0.49, 0.70), control: p(0.44, 0.78))
+    crimp.addQuadCurve(to: p(0.59, 0.70), control: p(0.54, 0.78))
+    crimp.addQuadCurve(to: p(0.69, 0.70), control: p(0.64, 0.78))
+    context.addPath(crimp)
+    context.strokePath()
 }
 
 private func drawAppIconBackground(in context: CGContext, canvas: CGRect) {
