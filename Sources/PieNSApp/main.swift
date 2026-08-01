@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var activeService = "Unknown"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        PieNSLog.write("applicationDidFinishLaunching")
         NSApp.setActivationPolicy(.accessory)
         configureStatusItem()
         refreshState()
@@ -27,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.target = self
         button.action = #selector(statusItemClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        PieNSLog.write("status item configured")
     }
 
     @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
@@ -93,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         helperClient.currentState { result in
             DispatchQueue.main.async {
                 guard result.ok else {
+                    PieNSLog.write("helper unavailable: \(result.message)")
                     self.statusItem.button?.image = PieIcon.make(isManual: false)
                     self.statusItem.button?.toolTip = "PieNS: helper unavailable"
                     return
@@ -285,6 +288,33 @@ final class HelperClient {
     }
 }
 
+enum PieNSLog {
+    static func write(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        let logsDirectory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Logs", isDirectory: true)
+        let logURL = logsDirectory.appendingPathComponent("PieNS.log")
+
+        do {
+            try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+            if FileManager.default.fileExists(atPath: logURL.path) {
+                let handle = try FileHandle(forWritingTo: logURL)
+                try handle.seekToEnd()
+                if let data = line.data(using: .utf8) {
+                    try handle.write(contentsOf: data)
+                }
+                try handle.close()
+            } else {
+                try line.write(to: logURL, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            // Logging must never prevent the menu-bar app from launching.
+        }
+    }
+}
+
 enum PieIcon {
     static func make(isManual: Bool) -> NSImage {
         let size = NSSize(width: 18, height: 18)
@@ -308,14 +338,14 @@ enum PieIcon {
         let endAngle: CGFloat = 77
 
         let crust = NSBezierPath()
-        crust.lineWidth = 1.75
+        crust.lineWidth = 2.15
         crust.lineCapStyle = .round
         crust.lineJoinStyle = .round
         crust.appendArc(withCenter: center, radius: outerRadius, startAngle: endAngle, endAngle: startAngle + 360)
         crust.stroke()
 
         let cut = NSBezierPath()
-        cut.lineWidth = 1.1
+        cut.lineWidth = 1.35
         cut.lineCapStyle = .round
         cut.move(to: center)
         cut.line(to: point(0.84, 0.61))
@@ -324,13 +354,13 @@ enum PieIcon {
         cut.stroke()
 
         let filling = NSBezierPath()
-        filling.lineWidth = 0.9
+        filling.lineWidth = 1.05
         filling.lineCapStyle = .round
         filling.appendArc(withCenter: center, radius: innerRadius, startAngle: endAngle + 8, endAngle: startAngle + 352)
         filling.stroke()
 
         let lattice = NSBezierPath()
-        lattice.lineWidth = 0.75
+        lattice.lineWidth = 0.95
         lattice.lineCapStyle = .round
         lattice.move(to: point(0.30, 0.42))
         lattice.line(to: point(0.48, 0.62))

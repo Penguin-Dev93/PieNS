@@ -74,7 +74,15 @@ for size in sizes {
 try writeICNS(pngsByPixelSize: pngsByPixelSize, to: icnsURL)
 
 private func drawPieIcon(in context: CGContext, size: CGFloat) {
-    let strokeColor = CGColor(gray: 0.08, alpha: 1)
+    let backgroundRect = CGRect(x: size * 0.08, y: size * 0.08, width: size * 0.84, height: size * 0.84)
+    let cornerRadius = size * 0.20
+    let background = CGMutablePath()
+    background.addRoundedRect(in: backgroundRect, cornerWidth: cornerRadius, cornerHeight: cornerRadius)
+    context.setFillColor(CGColor(gray: 0.04, alpha: 1))
+    context.addPath(background)
+    context.fillPath()
+
+    let strokeColor = CGColor(gray: 0.96, alpha: 1)
     let lineWidth = max(2, size * 0.052)
 
     context.setStrokeColor(strokeColor)
