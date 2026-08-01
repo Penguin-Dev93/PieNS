@@ -3,7 +3,6 @@ import Foundation
 import PieNSCore
 import ServiceManagement
 
-@main
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -205,6 +204,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 }
+
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.run()
 
 struct HelperResult {
     let ok: Bool
