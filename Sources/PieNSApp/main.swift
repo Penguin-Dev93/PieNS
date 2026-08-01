@@ -18,6 +18,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshState()
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        PieNSLog.write("applicationWillTerminate")
+        helperClient.reset()
+        unregisterHelper(reason: "app quit")
+    }
+
     private func configureStatusItem() {
         guard let button = statusItem.button else {
             return
@@ -184,15 +190,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func resetHelper() {
         PieNSLog.write("helper reset requested")
         helperClient.reset()
+        unregisterHelper(reason: "reset")
 
         let service = SMAppService.daemon(plistName: PieNSConstants.helperPlistName)
-        do {
-            try service.unregister()
-            PieNSLog.write("helper unregistered")
-        } catch {
-            PieNSLog.write("helper unregister failed: \(error.localizedDescription)")
-        }
-
         do {
             try service.register()
             PieNSLog.write("helper registered; status=\(service.status)")
@@ -203,6 +203,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             PieNSLog.write("helper register failed: \(error.localizedDescription)")
             showAlert(title: "Could not reset helper", message: error.localizedDescription)
+        }
+    }
+
+    private func unregisterHelper(reason: String) {
+        let service = SMAppService.daemon(plistName: PieNSConstants.helperPlistName)
+        do {
+            try service.unregister()
+            PieNSLog.write("helper unregistered: \(reason)")
+        } catch {
+            PieNSLog.write("helper unregister skipped/failed for \(reason): \(error.localizedDescription)")
         }
     }
 
@@ -328,10 +338,8 @@ final class HelperClient {
                 }
 
                 self.requestID += 1
-                if !result.ok {
-                    self.connection?.invalidate()
-                    self.connection = nil
-                }
+                self.connection?.invalidate()
+                self.connection = nil
                 completion(result)
             }
         }

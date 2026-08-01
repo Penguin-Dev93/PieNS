@@ -205,6 +205,7 @@ final class HelperDelegate: NSObject, NSXPCListenerDelegate {
     private let service = HelperService()
 
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection connection: NSXPCConnection) -> Bool {
+        HelperLog.write("connection accepted")
         connection.exportedInterface = NSXPCInterface(with: PieNSHelperProtocol.self)
         connection.exportedObject = service
         connection.resume()
@@ -217,4 +218,8 @@ let listener = NSXPCListener(machServiceName: PieNSConstants.helperMachServiceNa
 listener.delegate = delegate
 HelperLog.write("helper starting")
 listener.resume()
+Timer.scheduledTimer(withTimeInterval: 15, repeats: false) { _ in
+    HelperLog.write("idle exit")
+    exit(0)
+}
 RunLoop.main.run()
