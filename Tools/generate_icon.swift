@@ -52,34 +52,7 @@ for size in sizes {
     let canvas = CGRect(x: 0, y: 0, width: width, height: height)
     context.clear(canvas)
 
-    let inset = CGFloat(width) * 0.12
-    let rect = canvas.insetBy(dx: inset, dy: inset)
-
-    context.saveGState()
-    context.setShadow(
-        offset: CGSize(width: 0, height: -CGFloat(width) * 0.012),
-        blur: CGFloat(width) * 0.025,
-        color: CGColor(gray: 0, alpha: 0.16)
-    )
-    context.setFillColor(CGColor(gray: 0.08, alpha: 1))
-    context.fillEllipse(in: rect)
-    context.restoreGState()
-
-    let center = CGPoint(x: rect.midX, y: rect.midY)
-    let radius = max(rect.width, rect.height) * 0.58
-    context.saveGState()
-    context.setBlendMode(.clear)
-    context.move(to: center)
-    context.addArc(
-        center: center,
-        radius: radius,
-        startAngle: degreesToRadians(25),
-        endAngle: degreesToRadians(78),
-        clockwise: false
-    )
-    context.closePath()
-    context.fillPath()
-    context.restoreGState()
+    drawPieIcon(in: context, size: CGFloat(width))
 
     guard let cgImage = context.makeImage() else {
         throw CocoaError(.fileWriteUnknown)
@@ -100,8 +73,82 @@ for size in sizes {
 
 try writeICNS(pngsByPixelSize: pngsByPixelSize, to: icnsURL)
 
-private func degreesToRadians(_ degrees: CGFloat) -> CGFloat {
-    degrees * .pi / 180
+private func drawPieIcon(in context: CGContext, size: CGFloat) {
+    let strokeColor = CGColor(gray: 0.08, alpha: 1)
+    let lineWidth = max(2, size * 0.052)
+
+    context.setStrokeColor(strokeColor)
+    context.setLineWidth(lineWidth)
+    context.setLineCap(.round)
+    context.setLineJoin(.round)
+
+    let center = CGPoint(x: size * 0.50, y: size * 0.50)
+    let outerRadius = size * 0.36
+    let innerRadius = size * 0.26
+    let startGap = CGFloat.pi * 0.10
+    let endGap = CGFloat.pi * 0.43
+    let startPoint = CGPoint(
+        x: center.x + cos(startGap) * outerRadius,
+        y: center.y + sin(startGap) * outerRadius
+    )
+    let endPoint = CGPoint(
+        x: center.x + cos(endGap) * outerRadius,
+        y: center.y + sin(endGap) * outerRadius
+    )
+
+    context.addArc(center: center, radius: outerRadius, startAngle: endGap, endAngle: startGap + (.pi * 2), clockwise: false)
+    context.strokePath()
+
+    context.setLineWidth(lineWidth * 0.58)
+    context.move(to: center)
+    context.addLine(to: startPoint)
+    context.move(to: center)
+    context.addLine(to: endPoint)
+    context.strokePath()
+
+    context.addArc(center: center, radius: innerRadius, startAngle: endGap + 0.08, endAngle: startGap + (.pi * 2) - 0.08, clockwise: false)
+    context.strokePath()
+
+    if size >= 96 {
+        let clipPath = CGMutablePath()
+        clipPath.move(to: center)
+        clipPath.addArc(center: center, radius: outerRadius - lineWidth, startAngle: endGap, endAngle: startGap + (.pi * 2), clockwise: false)
+        clipPath.closeSubpath()
+
+        context.saveGState()
+        context.addPath(clipPath)
+        context.clip()
+        context.setLineWidth(lineWidth * 0.45)
+
+        let latticeLines = [
+            (CGPoint(x: size * 0.27, y: size * 0.42), CGPoint(x: size * 0.50, y: size * 0.66)),
+            (CGPoint(x: size * 0.35, y: size * 0.31), CGPoint(x: size * 0.68, y: size * 0.64)),
+            (CGPoint(x: size * 0.28, y: size * 0.58), CGPoint(x: size * 0.51, y: size * 0.35)),
+            (CGPoint(x: size * 0.42, y: size * 0.67), CGPoint(x: size * 0.69, y: size * 0.40))
+        ]
+
+        for line in latticeLines {
+            context.move(to: line.0)
+            context.addLine(to: line.1)
+            context.strokePath()
+        }
+
+        context.restoreGState()
+
+        context.setLineWidth(lineWidth * 0.34)
+        let crimpAngles: [CGFloat] = [1.95, 2.38, 2.82, 3.27, 3.72, 4.18, 4.66, 5.10]
+        for angle in crimpAngles {
+            context.move(to: CGPoint(
+                x: center.x + cos(angle) * (outerRadius - lineWidth * 0.30),
+                y: center.y + sin(angle) * (outerRadius - lineWidth * 0.30)
+            ))
+            context.addLine(to: CGPoint(
+                x: center.x + cos(angle) * (outerRadius + lineWidth * 0.30),
+                y: center.y + sin(angle) * (outerRadius + lineWidth * 0.30)
+            ))
+            context.strokePath()
+        }
+    }
 }
 
 private func writeICNS(pngsByPixelSize: [Int: Data], to url: URL) throws {

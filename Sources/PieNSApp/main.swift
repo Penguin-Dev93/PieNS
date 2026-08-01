@@ -290,28 +290,49 @@ enum PieIcon {
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
-        let rect = NSRect(x: 2, y: 2, width: 14, height: 14)
-        let pie = NSBezierPath(ovalIn: rect)
-        (isManual ? NSColor.systemGreen : NSColor.labelColor).setFill()
-        pie.fill()
+        let strokeColor = isManual ? NSColor.systemGreen : NSColor.labelColor
+        strokeColor.setStroke()
 
-        let missingSlice = NSBezierPath()
-        let center = NSPoint(x: rect.midX, y: rect.midY)
-        missingSlice.move(to: center)
-        missingSlice.appendArc(
-            withCenter: center,
-            radius: 8.5,
-            startAngle: 25,
-            endAngle: 75,
-            clockwise: false
-        )
-        missingSlice.close()
-        let previousOperation = NSGraphicsContext.current?.compositingOperation
-        NSGraphicsContext.current?.compositingOperation = .clear
-        missingSlice.fill()
-        if let previousOperation {
-            NSGraphicsContext.current?.compositingOperation = previousOperation
+        func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint {
+            NSPoint(x: x * size.width, y: y * size.height)
         }
+
+        let center = point(0.50, 0.50)
+        let outerRadius: CGFloat = 6.5
+        let innerRadius: CGFloat = 4.35
+        let startAngle: CGFloat = 18
+        let endAngle: CGFloat = 77
+
+        let crust = NSBezierPath()
+        crust.lineWidth = 1.75
+        crust.lineCapStyle = .round
+        crust.lineJoinStyle = .round
+        crust.appendArc(withCenter: center, radius: outerRadius, startAngle: endAngle, endAngle: startAngle + 360)
+        crust.stroke()
+
+        let cut = NSBezierPath()
+        cut.lineWidth = 1.1
+        cut.lineCapStyle = .round
+        cut.move(to: center)
+        cut.line(to: point(0.84, 0.61))
+        cut.move(to: center)
+        cut.line(to: point(0.57, 0.86))
+        cut.stroke()
+
+        let filling = NSBezierPath()
+        filling.lineWidth = 0.9
+        filling.lineCapStyle = .round
+        filling.appendArc(withCenter: center, radius: innerRadius, startAngle: endAngle + 8, endAngle: startAngle + 352)
+        filling.stroke()
+
+        let lattice = NSBezierPath()
+        lattice.lineWidth = 0.75
+        lattice.lineCapStyle = .round
+        lattice.move(to: point(0.30, 0.42))
+        lattice.line(to: point(0.48, 0.62))
+        lattice.move(to: point(0.35, 0.63))
+        lattice.line(to: point(0.58, 0.38))
+        lattice.stroke()
 
         image.unlockFocus()
         image.isTemplate = !isManual
