@@ -8,5 +8,6 @@ build/
 *.ipa
 *.dSYM.zip
 *.dSYM
+*.iconset/
 *.md
 !.gitignore

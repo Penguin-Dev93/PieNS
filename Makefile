@@ -9,14 +9,17 @@ SWIFT_FLAGS := --disable-sandbox --cache-path "$(PWD)/.build/swiftpm-cache"
 SWIFT_ENV := HOME="$(PWD)/.build/home" CLANG_MODULE_CACHE_PATH="$(PWD)/.build/module-cache"
 SWIFT_BIN_DIR := .build/$(CONFIGURATION)
 
-.PHONY: all clean test app run
+.PHONY: all clean test icon app run
 
 all: app
 
 test:
 	$(SWIFT_ENV) swift test $(SWIFT_FLAGS)
 
-app:
+icon:
+	$(SWIFT_ENV) swift Tools/generate_icon.swift
+
+app: icon
 	$(SWIFT_ENV) swift build $(SWIFT_FLAGS) $(SWIFT_CONFIG)
 	rm -rf "$(APP_BUNDLE)"
 	mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
@@ -25,6 +28,7 @@ app:
 	cp "$(SWIFT_BIN_DIR)/$(APP_NAME)" "$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"
 	cp "$(SWIFT_BIN_DIR)/PieNSHelper" "$(APP_BUNDLE)/Contents/Resources/PieNSHelper"
 	cp "Resources/Info.plist" "$(APP_BUNDLE)/Contents/Info.plist"
+	cp "Resources/PieNS.icns" "$(APP_BUNDLE)/Contents/Resources/PieNS.icns"
 	cp "Resources/$(HELPER_LABEL).plist" "$(APP_BUNDLE)/Contents/Library/LaunchDaemons/$(HELPER_LABEL).plist"
 	codesign --force --deep --sign - "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"

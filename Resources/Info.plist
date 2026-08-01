@@ -6,6 +6,8 @@
 	<string>en</string>
 	<key>CFBundleExecutable</key>
 	<string>PieNS</string>
+	<key>CFBundleIconFile</key>
+	<string>PieNS</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.penguin-dev93.PieNS</string>
 	<key>CFBundleInfoDictionaryVersion</key>
