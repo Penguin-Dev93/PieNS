@@ -1,0 +1,12 @@
+.build/
+.swiftpm/
+DerivedData/
+build/
+*.xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.md
+!.gitignore
