@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.target = self
         button.action = #selector(statusItemClicked(_:))
         button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        statusItem.length = 28
+        statusItem.length = 32
         PieNSLog.write("status item configured")
     }
 
@@ -475,7 +475,7 @@ enum PieNSLog {
 enum PieIcon {
     static func make(isManual: Bool) -> NSImage {
         let resourceName = isManual ? "TrayIconOn" : "TrayIconOff"
-        let size = NSSize(width: 25, height: 22)
+        let size = isManual ? NSSize(width: 25, height: 22) : NSSize(width: 28, height: 18)
 
         if let url = Bundle.main.url(forResource: resourceName, withExtension: "png"),
            let image = NSImage(contentsOf: url) {

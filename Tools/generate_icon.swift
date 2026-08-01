@@ -19,8 +19,10 @@ try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDir
 let previewDirectory = URL(fileURLWithPath: "Resources/Previews", isDirectory: true)
 try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
 let icnsURL = URL(fileURLWithPath: "Resources/PieNS.icns")
+let appIconURL = URL(fileURLWithPath: "Resources/AppIconOn.png")
 let trayOffURL = URL(fileURLWithPath: "Resources/TrayIconOff.png")
 let trayOnURL = URL(fileURLWithPath: "Resources/TrayIconOn.png")
+let appIconImage = try loadCGImage(from: appIconURL)
 let trayOffImage = try loadCGImage(from: trayOffURL)
 let trayOnImage = try loadCGImage(from: trayOnURL)
 
@@ -59,7 +61,7 @@ for size in sizes {
     context.clear(canvas)
 
     drawAppIconBackground(in: context, canvas: canvas)
-    drawImage(trayOnImage, in: context, canvas: canvas)
+    drawImage(appIconImage, in: context, canvas: canvas)
 
     guard let cgImage = context.makeImage() else {
         throw CocoaError(.fileWriteUnknown)
@@ -80,8 +82,8 @@ for size in sizes {
 
 try writeICNS(pngsByPixelSize: pngsByPixelSize, to: icnsURL)
 
-try writePreview(name: "tray-off-32.png", image: trayOffImage)
-try writePreview(name: "tray-on-32.png", image: trayOnImage)
+try writePreview(name: "tray-off-32.png", image: trayOffImage, iconSize: CGSize(width: 28, height: 18))
+try writePreview(name: "tray-on-32.png", image: trayOnImage, iconSize: CGSize(width: 25, height: 22))
 
 private func loadCGImage(from url: URL) throws -> CGImage {
     guard
@@ -109,7 +111,7 @@ private func drawAppIconBackground(in context: CGContext, canvas: CGRect) {
     context.fillPath()
 }
 
-private func writePreview(name: String, image: CGImage) throws {
+private func writePreview(name: String, image: CGImage, iconSize: CGSize) throws {
     let size = 32
     let colorSpace = CGColorSpaceCreateDeviceRGB()
     guard let context = CGContext(
@@ -127,7 +129,13 @@ private func writePreview(name: String, image: CGImage) throws {
     let canvas = CGRect(x: 0, y: 0, width: size, height: size)
     context.setFillColor(CGColor(gray: 0, alpha: 1))
     context.fill(canvas)
-    drawImage(image, in: context, canvas: canvas)
+    let iconRect = CGRect(
+        x: (canvas.width - iconSize.width) / 2,
+        y: (canvas.height - iconSize.height) / 2,
+        width: iconSize.width,
+        height: iconSize.height
+    )
+    drawImage(image, in: context, canvas: iconRect)
 
     guard let image = context.makeImage() else {
         throw CocoaError(.fileWriteUnknown)
