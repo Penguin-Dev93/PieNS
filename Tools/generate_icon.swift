@@ -86,7 +86,7 @@ enum PieState {
 
 private func drawTrayPie(in context: CGContext, canvas: CGRect, state: PieState, stroke: CGColor, scale: CGFloat) {
     context.setStrokeColor(stroke)
-    let lineWidth = max(1.55 * scale, canvas.width * 0.048)
+    let lineWidth = max(1.35 * scale, canvas.width * 0.044)
     context.setLineWidth(lineWidth)
     context.setLineCap(.round)
     context.setLineJoin(.round)
@@ -95,68 +95,88 @@ private func drawTrayPie(in context: CGContext, canvas: CGRect, state: PieState,
         CGPoint(x: canvas.minX + (x * canvas.width), y: canvas.minY + (y * canvas.height))
     }
 
-    let top = CGMutablePath()
-    top.move(to: p(0.18, 0.43))
+    let outer = CGMutablePath()
+    outer.move(to: p(0.12, 0.48))
+    outer.addCurve(to: p(0.20, 0.64), control1: p(0.10, 0.56), control2: p(0.13, 0.62))
+    outer.addCurve(to: p(0.31, 0.74), control1: p(0.22, 0.72), control2: p(0.27, 0.70))
+    outer.addCurve(to: p(0.46, 0.78), control1: p(0.34, 0.84), control2: p(0.41, 0.78))
+    outer.addCurve(to: p(0.62, 0.76), control1: p(0.51, 0.86), control2: p(0.57, 0.79))
+    outer.addCurve(to: p(0.78, 0.67), control1: p(0.68, 0.79), control2: p(0.75, 0.76))
+    outer.addCurve(to: p(0.88, 0.52), control1: p(0.86, 0.67), control2: p(0.90, 0.61))
     if state == .on {
-        top.addCurve(to: p(0.63, 0.26), control1: p(0.26, 0.24), control2: p(0.50, 0.19))
-        top.move(to: p(0.73, 0.30))
-        top.addCurve(to: p(0.86, 0.45), control1: p(0.81, 0.34), control2: p(0.86, 0.39))
+        outer.addLine(to: p(0.69, 0.49))
+        outer.move(to: p(0.60, 0.33))
+        outer.addCurve(to: p(0.20, 0.31), control1: p(0.48, 0.20), control2: p(0.27, 0.24))
     } else {
-        top.addCurve(to: p(0.86, 0.45), control1: p(0.30, 0.16), control2: p(0.76, 0.20))
+        outer.addCurve(to: p(0.20, 0.31), control1: p(0.82, 0.26), control2: p(0.38, 0.17))
     }
-    top.addCurve(to: p(0.18, 0.43), control1: p(0.78, 0.68), control2: p(0.30, 0.70))
-    context.addPath(top)
+    outer.addCurve(to: p(0.12, 0.48), control1: p(0.14, 0.35), control2: p(0.13, 0.42))
+    context.addPath(outer)
+    context.strokePath()
+
+    let inner = CGMutablePath()
+    inner.move(to: p(0.23, 0.48))
+    if state == .on {
+        inner.addCurve(to: p(0.58, 0.50), control1: p(0.30, 0.64), control2: p(0.46, 0.65))
+        inner.move(to: p(0.57, 0.36))
+        inner.addCurve(to: p(0.23, 0.48), control1: p(0.45, 0.27), control2: p(0.29, 0.31))
+    } else {
+        inner.addCurve(to: p(0.78, 0.50), control1: p(0.32, 0.68), control2: p(0.67, 0.67))
+        inner.addCurve(to: p(0.23, 0.48), control1: p(0.69, 0.27), control2: p(0.33, 0.27))
+    }
+    context.addPath(inner)
     context.strokePath()
 
     let body = CGMutablePath()
-    body.move(to: p(0.18, 0.43))
-    body.addCurve(to: p(0.30, 0.74), control1: p(0.19, 0.57), control2: p(0.23, 0.68))
-    body.addCurve(to: p(0.72, 0.77), control1: p(0.41, 0.87), control2: p(0.61, 0.87))
-    body.addCurve(to: p(0.86, 0.45), control1: p(0.81, 0.70), control2: p(0.86, 0.58))
+    body.move(to: p(0.12, 0.48))
+    body.addLine(to: p(0.13, 0.35))
+    body.addCurve(to: p(0.27, 0.20), control1: p(0.15, 0.28), control2: p(0.20, 0.23))
+    body.addCurve(to: p(0.60, 0.20), control1: p(0.37, 0.16), control2: p(0.51, 0.16))
+    if state == .on {
+        body.addLine(to: p(0.61, 0.33))
+    } else {
+        body.addCurve(to: p(0.88, 0.52), control1: p(0.78, 0.22), control2: p(0.89, 0.34))
+    }
     context.addPath(body)
     context.strokePath()
 
     if state == .on {
         let cut = CGMutablePath()
-        cut.move(to: p(0.63, 0.26))
-        cut.addLine(to: p(0.58, 0.53))
-        cut.move(to: p(0.73, 0.30))
-        cut.addLine(to: p(0.58, 0.53))
+        cut.move(to: p(0.58, 0.50))
+        cut.addLine(to: p(0.88, 0.52))
+        cut.addLine(to: p(0.78, 0.36))
+        cut.addLine(to: p(0.61, 0.33))
+        cut.move(to: p(0.58, 0.50))
+        cut.addLine(to: p(0.61, 0.33))
         context.addPath(cut)
+        context.strokePath()
+
+        context.setLineWidth(lineWidth * 0.62)
+        let layers = CGMutablePath()
+        layers.move(to: p(0.66, 0.47))
+        layers.addLine(to: p(0.82, 0.48))
+        layers.move(to: p(0.68, 0.42))
+        layers.addLine(to: p(0.79, 0.42))
+        context.addPath(layers)
         context.strokePath()
     }
 
-    context.setLineWidth(lineWidth * 0.72)
-    let rim = CGMutablePath()
-    rim.move(to: p(0.28, 0.48))
-    if state == .on {
-        rim.addCurve(to: p(0.56, 0.54), control1: p(0.37, 0.58), control2: p(0.48, 0.60))
-        rim.move(to: p(0.68, 0.52))
-    }
-    rim.addCurve(to: p(0.77, 0.48), control1: p(0.72, 0.54), control2: p(0.75, 0.52))
-    context.addPath(rim)
-    context.strokePath()
-
-    context.setLineWidth(lineWidth * 0.56)
-    let lattice = CGMutablePath()
-    lattice.move(to: p(0.35, 0.38))
-    lattice.addLine(to: p(0.45, 0.50))
-    lattice.move(to: p(0.42, 0.55))
-    lattice.addLine(to: p(0.53, 0.42))
-    if state == .off {
-        lattice.move(to: p(0.58, 0.39))
-        lattice.addLine(to: p(0.68, 0.51))
-    }
-    context.addPath(lattice)
-    context.strokePath()
-
-    context.setLineWidth(lineWidth * 0.50)
+    context.setLineWidth(lineWidth * 0.54)
     let crimp = CGMutablePath()
-    crimp.move(to: p(0.29, 0.70))
-    crimp.addQuadCurve(to: p(0.39, 0.70), control: p(0.34, 0.78))
-    crimp.addQuadCurve(to: p(0.49, 0.70), control: p(0.44, 0.78))
-    crimp.addQuadCurve(to: p(0.59, 0.70), control: p(0.54, 0.78))
-    crimp.addQuadCurve(to: p(0.69, 0.70), control: p(0.64, 0.78))
+    crimp.move(to: p(0.17, 0.55))
+    crimp.addLine(to: p(0.25, 0.51))
+    crimp.move(to: p(0.25, 0.68))
+    crimp.addLine(to: p(0.31, 0.60))
+    crimp.move(to: p(0.38, 0.77))
+    crimp.addLine(to: p(0.40, 0.67))
+    crimp.move(to: p(0.54, 0.78))
+    crimp.addLine(to: p(0.54, 0.68))
+    crimp.move(to: p(0.70, 0.71))
+    crimp.addLine(to: p(0.66, 0.62))
+    crimp.move(to: p(0.23, 0.33))
+    crimp.addLine(to: p(0.30, 0.40))
+    crimp.move(to: p(0.40, 0.24))
+    crimp.addLine(to: p(0.42, 0.33))
     context.addPath(crimp)
     context.strokePath()
 }

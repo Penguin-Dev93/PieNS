@@ -494,60 +494,81 @@ enum PieIcon {
             path.stroke()
         }
 
-        let top = NSBezierPath()
-        top.move(to: point(0.18, 0.45))
+        let outer = NSBezierPath()
+        outer.move(to: point(0.12, 0.48))
+        outer.curve(to: point(0.20, 0.64), controlPoint1: point(0.10, 0.56), controlPoint2: point(0.13, 0.62))
+        outer.curve(to: point(0.31, 0.74), controlPoint1: point(0.22, 0.72), controlPoint2: point(0.27, 0.70))
+        outer.curve(to: point(0.46, 0.78), controlPoint1: point(0.34, 0.84), controlPoint2: point(0.41, 0.78))
+        outer.curve(to: point(0.62, 0.76), controlPoint1: point(0.51, 0.86), controlPoint2: point(0.57, 0.79))
+        outer.curve(to: point(0.78, 0.67), controlPoint1: point(0.68, 0.79), controlPoint2: point(0.75, 0.76))
+        outer.curve(to: point(0.88, 0.52), controlPoint1: point(0.86, 0.67), controlPoint2: point(0.90, 0.61))
         if isManual {
-            top.curve(to: point(0.63, 0.28), controlPoint1: point(0.26, 0.27), controlPoint2: point(0.50, 0.22))
-            top.move(to: point(0.73, 0.32))
-            top.curve(to: point(0.86, 0.46), controlPoint1: point(0.81, 0.36), controlPoint2: point(0.86, 0.41))
+            outer.line(to: point(0.69, 0.49))
+            outer.move(to: point(0.60, 0.33))
+            outer.curve(to: point(0.20, 0.31), controlPoint1: point(0.48, 0.20), controlPoint2: point(0.27, 0.24))
         } else {
-            top.curve(to: point(0.86, 0.46), controlPoint1: point(0.30, 0.19), controlPoint2: point(0.76, 0.23))
+            outer.curve(to: point(0.20, 0.31), controlPoint1: point(0.82, 0.26), controlPoint2: point(0.38, 0.17))
         }
-        top.curve(to: point(0.18, 0.45), controlPoint1: point(0.78, 0.67), controlPoint2: point(0.30, 0.70))
-        stroke(top, width: 1.45)
+        outer.curve(to: point(0.12, 0.48), controlPoint1: point(0.14, 0.35), controlPoint2: point(0.13, 0.42))
+        stroke(outer, width: 1.35)
+
+        let inner = NSBezierPath()
+        inner.move(to: point(0.23, 0.48))
+        if isManual {
+            inner.curve(to: point(0.58, 0.50), controlPoint1: point(0.30, 0.64), controlPoint2: point(0.46, 0.65))
+            inner.move(to: point(0.57, 0.36))
+            inner.curve(to: point(0.23, 0.48), controlPoint1: point(0.45, 0.27), controlPoint2: point(0.29, 0.31))
+        } else {
+            inner.curve(to: point(0.78, 0.50), controlPoint1: point(0.32, 0.68), controlPoint2: point(0.67, 0.67))
+            inner.curve(to: point(0.23, 0.48), controlPoint1: point(0.69, 0.27), controlPoint2: point(0.33, 0.27))
+        }
+        stroke(inner, width: 1.35)
 
         let body = NSBezierPath()
-        body.move(to: point(0.18, 0.45))
-        body.curve(to: point(0.30, 0.75), controlPoint1: point(0.19, 0.58), controlPoint2: point(0.23, 0.68))
-        body.curve(to: point(0.72, 0.78), controlPoint1: point(0.41, 0.87), controlPoint2: point(0.61, 0.87))
-        body.curve(to: point(0.86, 0.46), controlPoint1: point(0.81, 0.70), controlPoint2: point(0.86, 0.58))
-        stroke(body, width: 1.45)
+        body.move(to: point(0.12, 0.48))
+        body.line(to: point(0.13, 0.35))
+        body.curve(to: point(0.27, 0.20), controlPoint1: point(0.15, 0.28), controlPoint2: point(0.20, 0.23))
+        body.curve(to: point(0.60, 0.20), controlPoint1: point(0.37, 0.16), controlPoint2: point(0.51, 0.16))
+        if isManual {
+            body.line(to: point(0.61, 0.33))
+        } else {
+            body.curve(to: point(0.88, 0.52), controlPoint1: point(0.78, 0.22), controlPoint2: point(0.89, 0.34))
+        }
+        stroke(body, width: 1.35)
 
         if isManual {
             let cut = NSBezierPath()
-            cut.move(to: point(0.63, 0.28))
-            cut.line(to: point(0.58, 0.54))
-            cut.move(to: point(0.73, 0.32))
-            cut.line(to: point(0.58, 0.54))
-            stroke(cut, width: 1.1)
-        }
+            cut.move(to: point(0.58, 0.50))
+            cut.line(to: point(0.88, 0.52))
+            cut.line(to: point(0.78, 0.36))
+            cut.line(to: point(0.61, 0.33))
+            cut.move(to: point(0.58, 0.50))
+            cut.line(to: point(0.61, 0.33))
+            stroke(cut, width: 1.35)
 
-        let rim = NSBezierPath()
-        rim.move(to: point(0.28, 0.50))
-        if isManual {
-            rim.curve(to: point(0.56, 0.55), controlPoint1: point(0.37, 0.59), controlPoint2: point(0.48, 0.61))
-            rim.move(to: point(0.68, 0.53))
+            let layers = NSBezierPath()
+            layers.move(to: point(0.66, 0.47))
+            layers.line(to: point(0.82, 0.48))
+            layers.move(to: point(0.68, 0.42))
+            layers.line(to: point(0.79, 0.42))
+            stroke(layers, width: 0.82)
         }
-        rim.curve(to: point(0.77, 0.50), controlPoint1: point(0.72, 0.55), controlPoint2: point(0.75, 0.53))
-        stroke(rim, width: 1.0)
-
-        let lattice = NSBezierPath()
-        lattice.move(to: point(0.35, 0.38))
-        lattice.line(to: point(0.45, 0.50))
-        lattice.move(to: point(0.42, 0.55))
-        lattice.line(to: point(0.53, 0.42))
-        if !isManual {
-            lattice.move(to: point(0.58, 0.39))
-            lattice.line(to: point(0.68, 0.51))
-        }
-        stroke(lattice, width: 0.82)
 
         let crimp = NSBezierPath()
-        crimp.move(to: point(0.29, 0.70))
-        crimp.curve(to: point(0.39, 0.70), controlPoint1: point(0.32, 0.78), controlPoint2: point(0.36, 0.78))
-        crimp.curve(to: point(0.49, 0.70), controlPoint1: point(0.42, 0.78), controlPoint2: point(0.46, 0.78))
-        crimp.curve(to: point(0.59, 0.70), controlPoint1: point(0.52, 0.78), controlPoint2: point(0.56, 0.78))
-        crimp.curve(to: point(0.69, 0.70), controlPoint1: point(0.62, 0.78), controlPoint2: point(0.66, 0.78))
+        crimp.move(to: point(0.17, 0.55))
+        crimp.line(to: point(0.25, 0.51))
+        crimp.move(to: point(0.25, 0.68))
+        crimp.line(to: point(0.31, 0.60))
+        crimp.move(to: point(0.38, 0.77))
+        crimp.line(to: point(0.40, 0.67))
+        crimp.move(to: point(0.54, 0.78))
+        crimp.line(to: point(0.54, 0.68))
+        crimp.move(to: point(0.70, 0.71))
+        crimp.line(to: point(0.66, 0.62))
+        crimp.move(to: point(0.23, 0.33))
+        crimp.line(to: point(0.30, 0.40))
+        crimp.move(to: point(0.40, 0.24))
+        crimp.line(to: point(0.42, 0.33))
         stroke(crimp, width: 0.72)
 
         image.unlockFocus()
