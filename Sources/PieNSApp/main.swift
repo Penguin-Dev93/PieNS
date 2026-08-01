@@ -474,65 +474,83 @@ enum PieNSLog {
 
 enum PieIcon {
     static func make(isManual: Bool) -> NSImage {
-        let size = NSSize(width: 24, height: 18)
+        let size = NSSize(width: 24, height: 20)
         let image = NSImage(size: size)
 
         image.lockFocus()
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
-        if isManual {
-            let badge = NSBezierPath(roundedRect: NSRect(x: 2, y: 1.5, width: 20, height: 15), xRadius: 7.5, yRadius: 7.5)
-            NSColor.systemGreen.setFill()
-            badge.fill()
-        }
-
-        let strokeColor = isManual ? NSColor.black : NSColor.labelColor.withAlphaComponent(0.58)
-        strokeColor.setStroke()
+        NSColor.black.setStroke()
 
         func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint {
             NSPoint(x: x * size.width, y: y * size.height)
         }
 
-        let center = point(0.50, 0.50)
-        let outerRadius: CGFloat = 6.0
-        let innerRadius: CGFloat = 4.0
-        let startAngle: CGFloat = 18
-        let endAngle: CGFloat = 77
+        func stroke(_ path: NSBezierPath, width: CGFloat) {
+            path.lineWidth = width
+            path.lineCapStyle = .round
+            path.lineJoinStyle = .round
+            path.stroke()
+        }
 
-        let crust = NSBezierPath()
-        crust.lineWidth = isManual ? 1.85 : 1.75
-        crust.lineCapStyle = .round
-        crust.lineJoinStyle = .round
-        crust.appendArc(withCenter: center, radius: outerRadius, startAngle: endAngle, endAngle: startAngle + 360)
-        crust.stroke()
+        let top = NSBezierPath()
+        top.move(to: point(0.18, 0.45))
+        if isManual {
+            top.curve(to: point(0.63, 0.28), controlPoint1: point(0.26, 0.27), controlPoint2: point(0.50, 0.22))
+            top.move(to: point(0.73, 0.32))
+            top.curve(to: point(0.86, 0.46), controlPoint1: point(0.81, 0.36), controlPoint2: point(0.86, 0.41))
+        } else {
+            top.curve(to: point(0.86, 0.46), controlPoint1: point(0.30, 0.19), controlPoint2: point(0.76, 0.23))
+        }
+        top.curve(to: point(0.18, 0.45), controlPoint1: point(0.78, 0.67), controlPoint2: point(0.30, 0.70))
+        stroke(top, width: 1.45)
 
-        let cut = NSBezierPath()
-        cut.lineWidth = isManual ? 1.2 : 1.1
-        cut.lineCapStyle = .round
-        cut.move(to: center)
-        cut.line(to: point(0.73, 0.60))
-        cut.move(to: center)
-        cut.line(to: point(0.55, 0.82))
-        cut.stroke()
+        let body = NSBezierPath()
+        body.move(to: point(0.18, 0.45))
+        body.curve(to: point(0.30, 0.75), controlPoint1: point(0.19, 0.58), controlPoint2: point(0.23, 0.68))
+        body.curve(to: point(0.72, 0.78), controlPoint1: point(0.41, 0.87), controlPoint2: point(0.61, 0.87))
+        body.curve(to: point(0.86, 0.46), controlPoint1: point(0.81, 0.70), controlPoint2: point(0.86, 0.58))
+        stroke(body, width: 1.45)
 
-        let filling = NSBezierPath()
-        filling.lineWidth = isManual ? 0.9 : 0.8
-        filling.lineCapStyle = .round
-        filling.appendArc(withCenter: center, radius: innerRadius, startAngle: endAngle + 8, endAngle: startAngle + 352)
-        filling.stroke()
+        if isManual {
+            let cut = NSBezierPath()
+            cut.move(to: point(0.63, 0.28))
+            cut.line(to: point(0.58, 0.54))
+            cut.move(to: point(0.73, 0.32))
+            cut.line(to: point(0.58, 0.54))
+            stroke(cut, width: 1.1)
+        }
 
-        let lattice = NSBezierPath()
-        lattice.lineWidth = isManual ? 0.85 : 0.7
-        lattice.lineCapStyle = .round
-        lattice.move(to: point(0.38, 0.43))
-        lattice.line(to: point(0.49, 0.59))
-        lattice.move(to: point(0.41, 0.61))
-        lattice.line(to: point(0.55, 0.40))
-        lattice.stroke()
+        let rim = NSBezierPath()
+        rim.move(to: point(0.28, 0.50))
+        if isManual {
+            rim.curve(to: point(0.56, 0.55), controlPoint1: point(0.37, 0.59), controlPoint2: point(0.48, 0.61))
+            rim.move(to: point(0.68, 0.53))
+        }
+        rim.curve(to: point(0.77, 0.50), controlPoint1: point(0.72, 0.55), controlPoint2: point(0.75, 0.53))
+        stroke(rim, width: 1.0)
+
+        let lowerCrust = NSBezierPath()
+        lowerCrust.move(to: point(0.33, 0.70))
+        lowerCrust.curve(to: point(0.49, 0.73), controlPoint1: point(0.38, 0.79), controlPoint2: point(0.44, 0.79))
+        lowerCrust.curve(to: point(0.66, 0.70), controlPoint1: point(0.55, 0.79), controlPoint2: point(0.61, 0.79))
+        stroke(lowerCrust, width: 0.84)
+
+        let steamMarks = [
+            (point(0.35, 0.86), point(0.39, 0.96), point(0.43, 0.88)),
+            (point(0.52, 0.88), point(0.56, 0.98), point(0.60, 0.90)),
+            (point(0.68, 0.86), point(0.72, 0.96), point(0.76, 0.88))
+        ]
+        for mark in steamMarks {
+            let steam = NSBezierPath()
+            steam.move(to: mark.0)
+            steam.curve(to: mark.2, controlPoint1: mark.1, controlPoint2: mark.1)
+            stroke(steam, width: 0.78)
+        }
 
         image.unlockFocus()
-        image.isTemplate = false
+        image.isTemplate = true
         return image
     }
 }
