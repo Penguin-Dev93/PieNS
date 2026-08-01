@@ -57,4 +57,34 @@ public enum NetworkSetupParsing {
 
         return nil
     }
+
+    public static func parseOrderedServiceNames(_ serviceOrderOutput: String) -> [String] {
+        serviceOrderOutput
+            .components(separatedBy: .newlines)
+            .compactMap { line in
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard trimmed.hasPrefix("("), let close = trimmed.firstIndex(of: ")") else {
+                    return nil
+                }
+
+                let numberStart = trimmed.index(after: trimmed.startIndex)
+                let marker = trimmed[numberStart..<close]
+                guard marker.allSatisfy(\.isNumber) else {
+                    return nil
+                }
+
+                let afterIndex = trimmed.index(after: close)
+                let service = String(trimmed[afterIndex...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                return service.isEmpty || service.hasPrefix("*") ? nil : service
+            }
+    }
+
+    public static func preferredFallbackServiceName(serviceOrderOutput: String) -> String? {
+        let services = parseOrderedServiceNames(serviceOrderOutput)
+        if let wifi = services.first(where: { $0.localizedCaseInsensitiveContains("wi-fi") || $0.localizedCaseInsensitiveContains("wifi") }) {
+            return wifi
+        }
+
+        return services.first
+    }
 }

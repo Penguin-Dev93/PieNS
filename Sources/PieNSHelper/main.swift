@@ -115,7 +115,11 @@ final class DNSController {
         }
 
         let services = try networksetup(["-listnetworkserviceorder"]).stdout
-        guard let service = NetworkSetupParsing.parseServiceName(forDevice: device, serviceOrderOutput: services) else {
+        if let service = NetworkSetupParsing.parseServiceName(forDevice: device, serviceOrderOutput: services) {
+            return service
+        }
+
+        guard let service = NetworkSetupParsing.preferredFallbackServiceName(serviceOrderOutput: services) else {
             throw HelperError.noNetworkService(device)
         }
 

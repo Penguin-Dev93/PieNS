@@ -37,3 +37,30 @@ import Testing
 
     #expect(NetworkSetupParsing.parseServiceName(forDevice: "en0", serviceOrderOutput: output) == "Wi-Fi")
 }
+
+@Test func parsesOrderedServiceNames() {
+    let output = """
+    An asterisk (*) denotes that a network service is disabled.
+    (1) Thunderbolt Bridge
+    (Hardware Port: Thunderbolt Bridge, Device: bridge0)
+
+    (2) Wi-Fi
+    (Hardware Port: Wi-Fi, Device: en0)
+    """
+
+    #expect(NetworkSetupParsing.parseOrderedServiceNames(output) == ["Thunderbolt Bridge", "Wi-Fi"])
+}
+
+@Test func prefersWifiFallbackWhenDefaultRouteUsesVirtualInterface() {
+    let output = """
+    An asterisk (*) denotes that a network service is disabled.
+    (1) Ethernet
+    (Hardware Port: Ethernet, Device: en7)
+
+    (2) Wi-Fi
+    (Hardware Port: Wi-Fi, Device: en0)
+    """
+
+    #expect(NetworkSetupParsing.parseServiceName(forDevice: "feth1325", serviceOrderOutput: output) == nil)
+    #expect(NetworkSetupParsing.preferredFallbackServiceName(serviceOrderOutput: output) == "Wi-Fi")
+}
