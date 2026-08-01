@@ -1,7 +1,6 @@
 import AppKit
 import Foundation
 import PieNSCore
-import ServiceManagement
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -21,7 +20,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         PieNSLog.write("applicationWillTerminate")
         helperClient.reset()
-        unregisterHelper(reason: "app quit")
     }
 
     private func configureStatusItem() {
@@ -58,8 +56,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: isManual ? "Turn Automatic DNS On" : "Turn Manual DNS On", action: #selector(toggleDNSAction), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Configure DNS Servers...", action: #selector(configureDNSServers), keyEquivalent: ","))
-        menu.addItem(NSMenuItem(title: "Enable Helper", action: #selector(enableHelper), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Reset Helper", action: #selector(resetHelper), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Refresh Status", action: #selector(refreshStateAction), keyEquivalent: "r"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit PieNS", action: #selector(quit), keyEquivalent: "q"))
@@ -183,73 +179,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return nil
     }
 
-    @objc private func enableHelper() {
-        ensureHelperEnabled { _ in }
-    }
-
-    @objc private func resetHelper() {
-        PieNSLog.write("helper reset requested")
-        helperClient.reset()
-        unregisterHelper(reason: "reset")
-
-        let service = SMAppService.daemon(plistName: PieNSConstants.helperPlistName)
-        do {
-            try service.register()
-            PieNSLog.write("helper registered; status=\(service.status)")
-            if service.status == .requiresApproval {
-                SMAppService.openSystemSettingsLoginItems()
-            }
-            refreshState()
-        } catch {
-            PieNSLog.write("helper register failed: \(error.localizedDescription)")
-            showAlert(title: "Could not reset helper", message: error.localizedDescription)
-        }
-    }
-
-    private func unregisterHelper(reason: String) {
-        let service = SMAppService.daemon(plistName: PieNSConstants.helperPlistName)
-        do {
-            try service.unregister()
-            PieNSLog.write("helper unregistered: \(reason)")
-        } catch {
-            PieNSLog.write("helper unregister skipped/failed for \(reason): \(error.localizedDescription)")
-        }
-    }
-
     private func ensureHelperEnabled(completion: @escaping (Bool) -> Void) {
-        let service = SMAppService.daemon(plistName: PieNSConstants.helperPlistName)
-
-        switch service.status {
-        case .enabled:
-            PieNSLog.write("helper status enabled")
-            completion(true)
-        case .requiresApproval:
-            PieNSLog.write("helper status requires approval")
-            SMAppService.openSystemSettingsLoginItems()
-            showAlert(
-                title: "Enable PieNS Helper",
-                message: "PieNS needs its helper enabled in System Settings before it can change DNS."
-            )
-            completion(false)
-        default:
-            do {
-                try service.register()
-                PieNSLog.write("helper register attempted; status=\(service.status)")
-                if service.status == .enabled {
-                    completion(true)
-                } else {
-                    SMAppService.openSystemSettingsLoginItems()
-                    showAlert(
-                        title: "Approve PieNS Helper",
-                        message: "Approve the PieNS helper in System Settings, then try the toggle again."
-                    )
-                    completion(false)
-                }
-            } catch {
-                showAlert(title: "Could not enable helper", message: error.localizedDescription)
-                completion(false)
-            }
-        }
+        completion(true)
     }
 
     @objc private func refreshStateAction() {
@@ -294,105 +225,223 @@ struct HelperResult: Sendable {
 }
 
 final class HelperClient: @unchecked Sendable {
-    private var connection: NSXPCConnection?
-    private var requestID = 0
+    private let controller = LocalDNSController()
 
     func reset() {
-        connection?.invalidate()
-        connection = nil
-        requestID += 1
+        controller.reset()
     }
 
     func currentState(completion: @escaping @Sendable (HelperResult) -> Void) {
-        withProxy(completion: completion) { helper, finish in
-            helper.currentState { finish(HelperResult(dictionary: $0)) }
+        controller.currentState(completion: completion)
+    }
+
+    func setManual(_ servers: [String], completion: @escaping @Sendable (HelperResult) -> Void) {
+        controller.setManual(servers, completion: completion)
+    }
+
+    func setAutomatic(completion: @escaping @Sendable (HelperResult) -> Void) {
+        controller.setAutomatic(completion: completion)
+    }
+}
+
+enum LocalDNSError: LocalizedError {
+    case noDefaultInterface
+    case noNetworkService(String)
+    case commandFailed(String)
+    case invalidServers
+
+    var errorDescription: String? {
+        switch self {
+        case .noDefaultInterface:
+            return "Could not find the active default network interface."
+        case .noNetworkService(let device):
+            return "Could not find a network service for device \(device)."
+        case .commandFailed(let message):
+            return message
+        case .invalidServers:
+            return "The requested DNS servers were invalid."
+        }
+    }
+}
+
+struct CommandResult {
+    let stdout: String
+    let stderr: String
+    let status: Int32
+}
+
+struct CommandRunner {
+    func run(_ executable: String, _ arguments: [String]) throws -> CommandResult {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = arguments
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let stdoutData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+
+        return CommandResult(
+            stdout: String(data: stdoutData, encoding: .utf8) ?? "",
+            stderr: String(data: stderrData, encoding: .utf8) ?? "",
+            status: process.terminationStatus
+        )
+    }
+}
+
+final class LocalDNSController: @unchecked Sendable {
+    private let runner = CommandRunner()
+    private let queue = DispatchQueue(label: "PieNS.LocalDNSController", qos: .userInitiated)
+
+    func reset() {}
+
+    func currentState(completion: @escaping @Sendable (HelperResult) -> Void) {
+        queue.async {
+            completion(self.response { try self.currentStateDictionary() })
         }
     }
 
     func setManual(_ servers: [String], completion: @escaping @Sendable (HelperResult) -> Void) {
-        withProxy(completion: completion) { helper, finish in
-            helper.setManualDNSServers(servers as NSArray) { finish(HelperResult(dictionary: $0)) }
+        queue.async {
+            completion(self.response { try self.setManualDictionary(servers) })
         }
     }
 
     func setAutomatic(completion: @escaping @Sendable (HelperResult) -> Void) {
-        withProxy(completion: completion) { helper, finish in
-            helper.setAutomaticDNS { finish(HelperResult(dictionary: $0)) }
+        queue.async {
+            completion(self.response { try self.setAutomaticDictionary() })
         }
     }
 
-    private func withProxy(
-        completion: @escaping @Sendable (HelperResult) -> Void,
-        body: @escaping (PieNSHelperProtocol, @escaping (HelperResult) -> Void) -> Void
-    ) {
-        let connection = self.connection ?? makeConnection()
-        self.connection = connection
-        requestID += 1
-        let activeRequestID = requestID
-        let gate = CompletionGate()
+    private func currentStateDictionary() throws -> [String: Any] {
+        let service = try activeServiceName()
+        let output = try networksetup(["-getdnsservers", service]).stdout
+        let mode = NetworkSetupParsing.parseDNSOutput(output)
 
-        let finish: @Sendable (HelperResult) -> Void = { result in
-            guard gate.tryComplete() else {
-                return
-            }
+        switch mode {
+        case .automatic:
+            return [
+                HelperResponseKey.ok: true,
+                HelperResponseKey.service: service,
+                HelperResponseKey.mode: HelperResponseMode.automatic
+            ]
+        case .manual(let servers):
+            return [
+                HelperResponseKey.ok: true,
+                HelperResponseKey.service: service,
+                HelperResponseKey.mode: HelperResponseMode.manual,
+                HelperResponseKey.servers: servers
+            ]
+        }
+    }
 
-            DispatchQueue.main.async {
-                if activeRequestID == self.requestID {
-                    self.requestID += 1
-                    self.connection?.invalidate()
-                    self.connection = nil
-                }
-                completion(result)
-            }
+    private func setManualDictionary(_ servers: [String]) throws -> [String: Any] {
+        guard !servers.isEmpty, servers.allSatisfy(DNSValidation.isIPAddress) else {
+            throw LocalDNSError.invalidServers
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-            finish(HelperResult(dictionary: [
-                HelperResponseKey.ok: false,
-                HelperResponseKey.message: "Timed out waiting for the PieNS helper. Use Reset Helper from the PieNS menu, then try again."
-            ]))
+        let service = try activeServiceName()
+        try privilegedNetworksetup(["-setdnsservers", service] + servers)
+
+        return [
+            HelperResponseKey.ok: true,
+            HelperResponseKey.service: service,
+            HelperResponseKey.mode: HelperResponseMode.manual,
+            HelperResponseKey.servers: servers
+        ]
+    }
+
+    private func setAutomaticDictionary() throws -> [String: Any] {
+        let service = try activeServiceName()
+        try privilegedNetworksetup(["-setdnsservers", service, "empty"])
+
+        return [
+            HelperResponseKey.ok: true,
+            HelperResponseKey.service: service,
+            HelperResponseKey.mode: HelperResponseMode.automatic
+        ]
+    }
+
+    private func activeServiceName() throws -> String {
+        let route = try runner.run("/sbin/route", ["-n", "get", "default"])
+        guard route.status == 0 else {
+            throw LocalDNSError.commandFailed(route.stderrOrStdout)
         }
 
-        let remote = connection.remoteObjectProxyWithErrorHandler { error in
-            finish(HelperResult(dictionary: [
+        guard let device = NetworkSetupParsing.parseDefaultInterface(route.stdout) else {
+            throw LocalDNSError.noDefaultInterface
+        }
+
+        let services = try networksetup(["-listnetworkserviceorder"]).stdout
+        if let service = NetworkSetupParsing.parseServiceName(forDevice: device, serviceOrderOutput: services) {
+            return service
+        }
+
+        guard let service = NetworkSetupParsing.preferredFallbackServiceName(serviceOrderOutput: services) else {
+            throw LocalDNSError.noNetworkService(device)
+        }
+
+        return service
+    }
+
+    private func networksetup(_ arguments: [String]) throws -> CommandResult {
+        let result = try runner.run("/usr/sbin/networksetup", arguments)
+        guard result.status == 0 else {
+            throw LocalDNSError.commandFailed(result.stderrOrStdout)
+        }
+
+        return result
+    }
+
+    private func privilegedNetworksetup(_ arguments: [String]) throws {
+        let command = ([ "/usr/sbin/networksetup" ] + arguments)
+            .map(shellQuote)
+            .joined(separator: " ")
+        let script = "do shell script \"\(appleScriptQuote(command))\" with administrator privileges"
+        let result = try runner.run("/usr/bin/osascript", ["-e", script])
+
+        guard result.status == 0 else {
+            throw LocalDNSError.commandFailed(result.stderrOrStdout)
+        }
+    }
+
+    private func response(_ operation: () throws -> [String: Any]) -> HelperResult {
+        do {
+            return HelperResult(dictionary: try operation() as NSDictionary)
+        } catch {
+            return HelperResult(dictionary: [
                 HelperResponseKey.ok: false,
                 HelperResponseKey.message: error.localizedDescription
-            ]))
-        } as? PieNSHelperProtocol
-
-        guard let remote else {
-            finish(HelperResult(dictionary: [
-                HelperResponseKey.ok: false,
-                HelperResponseKey.message: "Could not connect to the PieNS helper."
-            ]))
-            return
+            ])
         }
-
-        body(remote, finish)
     }
 
-    private func makeConnection() -> NSXPCConnection {
-        let connection = NSXPCConnection(machServiceName: PieNSConstants.helperMachServiceName, options: .privileged)
-        connection.remoteObjectInterface = NSXPCInterface(with: PieNSHelperProtocol.self)
-        connection.resume()
-        return connection
+    private func shellQuote(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
+    }
+
+    private func appleScriptQuote(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 }
 
-final class CompletionGate: @unchecked Sendable {
-    private let lock = NSLock()
-    private var completed = false
-
-    func tryComplete() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-
-        if completed {
-            return false
+private extension CommandResult {
+    var stderrOrStdout: String {
+        let stderrText = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stderrText.isEmpty {
+            return stderrText
         }
 
-        completed = true
-        return true
+        let stdoutText = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        return stdoutText.isEmpty ? "Command failed with exit status \(status)." : stdoutText
     }
 }
 
