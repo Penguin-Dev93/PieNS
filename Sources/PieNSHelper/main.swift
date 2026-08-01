@@ -1,6 +1,29 @@
 import Foundation
 import PieNSCore
 
+enum HelperLog {
+    static func write(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        let url = URL(fileURLWithPath: "/Library/Logs/PieNSHelper.log")
+
+        do {
+            if FileManager.default.fileExists(atPath: url.path) {
+                let handle = try FileHandle(forWritingTo: url)
+                try handle.seekToEnd()
+                if let data = line.data(using: .utf8) {
+                    try handle.write(contentsOf: data)
+                }
+                try handle.close()
+            } else {
+                try line.write(to: url, atomically: true, encoding: .utf8)
+            }
+        } catch {
+            // Helper logging is best effort only.
+        }
+    }
+}
+
 enum HelperError: LocalizedError {
     case noDefaultInterface
     case noNetworkService(String)
@@ -192,5 +215,6 @@ final class HelperDelegate: NSObject, NSXPCListenerDelegate {
 let delegate = HelperDelegate()
 let listener = NSXPCListener(machServiceName: PieNSConstants.helperMachServiceName)
 listener.delegate = delegate
+HelperLog.write("helper starting")
 listener.resume()
 RunLoop.main.run()

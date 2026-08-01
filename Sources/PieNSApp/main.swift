@@ -53,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: isManual ? "Turn Automatic DNS On" : "Turn Manual DNS On", action: #selector(toggleDNSAction), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Configure DNS Servers...", action: #selector(configureDNSServers), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Enable Helper", action: #selector(enableHelper), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Reset Helper", action: #selector(resetHelper), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Refresh Status", action: #selector(refreshStateAction), keyEquivalent: "r"))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit PieNS", action: #selector(quit), keyEquivalent: "q"))
@@ -78,7 +79,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if self.isManual {
                 PieNSLog.write("setting automatic DNS")
                 self.helperClient.setAutomatic { result in
-                    self.handleMutation(result)
+                    Task { @MainActor in
+                        self.handleMutation(result)
+                    }
                 }
             } else {
                 guard let servers = self.configuredServers(promptIfMissing: true) else {
@@ -88,7 +91,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
                 PieNSLog.write("setting manual DNS: \(servers.joined(separator: ","))")
                 self.helperClient.setManual(servers) { result in
-                    self.handleMutation(result)
+                    Task { @MainActor in
+                        self.handleMutation(result)
+                    }
                 }
             }
         }
@@ -176,13 +181,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ensureHelperEnabled { _ in }
     }
 
+    @objc private func resetHelper() {
+        PieNSLog.write("helper reset requested")
+        helperClient.reset()
+
+        let service = SMAppService.daemon(plistName: PieNSConstants.helperPlistName)
+        do {
+            try service.unregister()
+            PieNSLog.write("helper unregistered")
+        } catch {
+            PieNSLog.write("helper unregister failed: \(error.localizedDescription)")
+        }
+
+        do {
+            try service.register()
+            PieNSLog.write("helper registered; status=\(service.status)")
+            if service.status == .requiresApproval {
+                SMAppService.openSystemSettingsLoginItems()
+            }
+            refreshState()
+        } catch {
+            PieNSLog.write("helper register failed: \(error.localizedDescription)")
+            showAlert(title: "Could not reset helper", message: error.localizedDescription)
+        }
+    }
+
     private func ensureHelperEnabled(completion: @escaping (Bool) -> Void) {
         let service = SMAppService.daemon(plistName: PieNSConstants.helperPlistName)
 
         switch service.status {
         case .enabled:
+            PieNSLog.write("helper status enabled")
             completion(true)
         case .requiresApproval:
+            PieNSLog.write("helper status requires approval")
             SMAppService.openSystemSettingsLoginItems()
             showAlert(
                 title: "Enable PieNS Helper",
@@ -192,6 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         default:
             do {
                 try service.register()
+                PieNSLog.write("helper register attempted; status=\(service.status)")
                 if service.status == .enabled {
                     completion(true)
                 } else {
@@ -234,7 +267,7 @@ let delegate = AppDelegate()
 app.delegate = delegate
 app.run()
 
-struct HelperResult {
+struct HelperResult: Sendable {
     let ok: Bool
     let message: String
     let service: String?
@@ -250,55 +283,82 @@ struct HelperResult {
     }
 }
 
+@MainActor
 final class HelperClient {
     private var connection: NSXPCConnection?
+    private var requestID = 0
 
-    func currentState(completion: @escaping (HelperResult) -> Void) {
-        proxy { helper in
-            helper.currentState { completion(HelperResult(dictionary: $0)) }
-        } onError: {
-            completion($0)
+    func reset() {
+        connection?.invalidate()
+        connection = nil
+        requestID += 1
+    }
+
+    func currentState(completion: @escaping @Sendable (HelperResult) -> Void) {
+        withProxy(completion: completion) { helper, finish in
+            helper.currentState { finish(HelperResult(dictionary: $0)) }
         }
     }
 
-    func setManual(_ servers: [String], completion: @escaping (HelperResult) -> Void) {
-        proxy { helper in
-            helper.setManualDNSServers(servers as NSArray) { completion(HelperResult(dictionary: $0)) }
-        } onError: {
-            completion($0)
+    func setManual(_ servers: [String], completion: @escaping @Sendable (HelperResult) -> Void) {
+        withProxy(completion: completion) { helper, finish in
+            helper.setManualDNSServers(servers as NSArray) { finish(HelperResult(dictionary: $0)) }
         }
     }
 
-    func setAutomatic(completion: @escaping (HelperResult) -> Void) {
-        proxy { helper in
-            helper.setAutomaticDNS { completion(HelperResult(dictionary: $0)) }
-        } onError: {
-            completion($0)
+    func setAutomatic(completion: @escaping @Sendable (HelperResult) -> Void) {
+        withProxy(completion: completion) { helper, finish in
+            helper.setAutomaticDNS { finish(HelperResult(dictionary: $0)) }
         }
     }
 
-    private func proxy(_ body: @escaping (PieNSHelperProtocol) -> Void, onError: @escaping (HelperResult) -> Void) {
+    private func withProxy(
+        completion: @escaping @Sendable (HelperResult) -> Void,
+        body: @escaping (PieNSHelperProtocol, @escaping (HelperResult) -> Void) -> Void
+    ) {
         let connection = self.connection ?? makeConnection()
         self.connection = connection
+        requestID += 1
+        let activeRequestID = requestID
+
+        let finish: @Sendable (HelperResult) -> Void = { result in
+            Task { @MainActor in
+                guard activeRequestID == self.requestID else {
+                    return
+                }
+
+                self.requestID += 1
+                if !result.ok {
+                    self.connection?.invalidate()
+                    self.connection = nil
+                }
+                completion(result)
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            finish(HelperResult(dictionary: [
+                HelperResponseKey.ok: false,
+                HelperResponseKey.message: "Timed out waiting for the PieNS helper. Use Reset Helper from the PieNS menu, then try again."
+            ]))
+        }
 
         let remote = connection.remoteObjectProxyWithErrorHandler { error in
-            self.connection?.invalidate()
-            self.connection = nil
-            onError(HelperResult(dictionary: [
+            finish(HelperResult(dictionary: [
                 HelperResponseKey.ok: false,
                 HelperResponseKey.message: error.localizedDescription
             ]))
         } as? PieNSHelperProtocol
 
         guard let remote else {
-            onError(HelperResult(dictionary: [
+            finish(HelperResult(dictionary: [
                 HelperResponseKey.ok: false,
                 HelperResponseKey.message: "Could not connect to the PieNS helper."
             ]))
             return
         }
 
-        body(remote)
+        body(remote, finish)
     }
 
     private func makeConnection() -> NSXPCConnection {

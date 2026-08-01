@@ -26,7 +26,7 @@ app: icon
 	mkdir -p "$(APP_BUNDLE)/Contents/Resources"
 	mkdir -p "$(APP_BUNDLE)/Contents/Library/LaunchDaemons"
 	cp "$(SWIFT_BIN_DIR)/$(APP_NAME)" "$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"
-	cp "$(SWIFT_BIN_DIR)/PieNSHelper" "$(APP_BUNDLE)/Contents/Resources/PieNSHelper"
+	cp "$(SWIFT_BIN_DIR)/PieNSHelper" "$(APP_BUNDLE)/Contents/MacOS/PieNSHelper"
 	cp "Resources/Info.plist" "$(APP_BUNDLE)/Contents/Info.plist"
 	cp "Resources/PkgInfo" "$(APP_BUNDLE)/Contents/PkgInfo"
 	cp "Resources/PieNS.icns" "$(APP_BUNDLE)/Contents/Resources/PieNS.icns"
